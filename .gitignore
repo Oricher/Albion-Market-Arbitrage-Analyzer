@@ -1,0 +1,18 @@
+# Arquivos de Banco de Dados
+*.db
+*.db-journal*
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Arquivos gerados
+*.csv
+*.log

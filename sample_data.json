@@ -1,0 +1,162 @@
+[
+  {
+    "item_id": "T4_ORE",
+    "city": "Bridgewatch",
+    "sell_price_min": 150,
+    "buy_price_max": 140,
+    "timestamp": "2025-11-15T20:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_ORE",
+    "city": "Martlock",
+    "sell_price_min": 130,
+    "buy_price_max": 120,
+    "timestamp": "2025-11-15T19:30:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_ORE",
+    "city": "Lymhurst",
+    "sell_price_min": 160,
+    "buy_price_max": 150,
+    "timestamp": "2025-11-15T20:15:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_ORE",
+    "city": "Caerleon",
+    "sell_price_min": 180,
+    "buy_price_max": 175,
+    "timestamp": "2025-11-15T18:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T5_WOOD",
+    "city": "Bridgewatch",
+    "sell_price_min": 450,
+    "buy_price_max": 430,
+    "timestamp": "2025-11-15T17:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T5_WOOD",
+    "city": "Martlock",
+    "sell_price_min": 500,
+    "buy_price_max": 480,
+    "timestamp": "2025-11-15T20:10:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T5_WOOD",
+    "city": "Lymhurst",
+    "sell_price_min": 420,
+    "buy_price_max": 400,
+    "timestamp": "2025-11-15T20:05:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T5_WOOD",
+    "city": "Fort Sterling",
+    "sell_price_min": 480,
+    "buy_price_max": 460,
+    "timestamp": "2025-11-14T12:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T6_HIDE",
+    "city": "Bridgewatch",
+    "sell_price_min": 1100,
+    "buy_price_max": 1050,
+    "timestamp": "2025-11-15T19:00:00Z",
+    "quality": 2
+  },
+  {
+    "item_id": "T6_HIDE",
+    "city": "Martlock",
+    "sell_price_min": 950,
+    "buy_price_max": 920,
+    "timestamp": "2025-11-15T20:10:00Z",
+    "quality": 2
+  },
+  {
+    "item_id": "T6_HIDE",
+    "city": "Thetford",
+    "sell_price_min": 1200,
+    "buy_price_max": 1150,
+    "timestamp": "2025-11-15T16:00:00Z",
+    "quality": 2
+  },
+  {
+    "item_id": "T6_HIDE",
+    "city": "Caerleon",
+    "sell_price_min": 1300,
+    "buy_price_max": 1280,
+    "timestamp": "2025-11-15T19:45:00Z",
+    "quality": 2
+  },
+  {
+    "item_id": "T4_FIBER",
+    "city": "Lymhurst",
+    "sell_price_min": 200,
+    "buy_price_max": 180,
+    "timestamp": "2025-11-15T20:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_FIBER",
+    "city": "Thetford",
+    "sell_price_min": 170,
+    "buy_price_max": 160,
+    "timestamp": "2025-11-15T19:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_FIBER",
+    "city": "Bridgewatch",
+    "sell_price_min": 210,
+    "buy_price_max": 200,
+    "timestamp": "2025-11-15T18:30:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_ORE",
+    "city": "Martlock",
+    "sell_price_min": 140,
+    "buy_price_max": 130,
+    "timestamp": "2025-11-13T10:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T4_ORE",
+    "city": "Lymhurst",
+    "sell_price_min": 170,
+    "buy_price_max": 160,
+    "timestamp": "2025-11-13T11:00:00Z",
+    "quality": 1
+  },
+  {
+    "item_id": "T8_ROCK",
+    "city": "Caerleon",
+    "sell_price_min": 15000,
+    "buy_price_max": 14500,
+    "timestamp": "2025-11-15T20:20:00Z",
+    "quality": 3
+  },
+  {
+    "item_id": "T8_ROCK",
+    "city": "Martlock",
+    "sell_price_min": 12000,
+    "buy_price_max": 11500,
+    "timestamp": "2025-11-15T19:20:00Z",
+    "quality": 3
+  },
+  {
+    "item_id": "T8_ROCK",
+    "city": "Bridgewatch",
+    "sell_price_min": 16000,
+    "buy_price_max": 15500,
+    "timestamp": "2025-11-10T05:00:00Z",
+    "quality": 3
+  }
+]
