@@ -4,145 +4,155 @@ import fetch_prices
 import store
 import arbitrage
 import os
+import re
 
-# Configuração da página (deve ser o primeiro comando Streamlit)
 st.set_page_config(layout="wide", page_title="Albion Market Analyzer")
 
-st.title("📊 Albion Market Arbitrage Analyzer (MVP)")
+st.title("📊 Albion Market Analyzer (MVP)")
 st.caption(f"Usando banco de dados local: `{store.DB_FILE}`")
 
-# --- Barra Lateral (Configurações) ---
-st.sidebar.title("Configurações")
-st.sidebar.info("Ajuste os parâmetros para o cálculo de lucro líquido.")
+# --- Constantes ---
+CIDADES_REAIS = ["Thetford", "Fort Sterling", "Lymhurst", "Bridgewatch", "Martlock", "Caerleon"]
+CIDADES_PORTAIS = ["Merlyn's Rest", "Arthur's Rest", "Morgana's Rest"]
+
+# --- Barra Lateral ---
+st.sidebar.title("Filtros de Lucratividade")
 
 DEFAULT_FEE_PCT = 4.5
 DEFAULT_TRANSPORT_COST = 500
 
-# Parâmetros de cálculo
-fee_pct = st.sidebar.number_input(
-    "Taxa de Mercado (%)",
-    min_value=0.0,
-    max_value=20.0,
-    value=DEFAULT_FEE_PCT,
-    step=0.1,
-    help="Taxa percentual cobrada sobre a venda (setup fee + market fee). Default: 4.5%"
-)
+# Inputs Econômicos
+fee_pct = st.sidebar.number_input("Taxa de Mercado (%)", 0.0, 20.0, DEFAULT_FEE_PCT, step=0.5)
+transport_cost = st.sidebar.number_input("Custo Transporte (Prata)", 0, value=DEFAULT_TRANSPORT_COST, step=100)
 
-transport_cost = st.sidebar.number_input(
-    "Custo de Transporte (Prata)",
-    min_value=0,
-    value=DEFAULT_TRANSPORT_COST,
-    step=50,
-    help="Custo fixo estimado para transportar o item entre cidades."
-)
+st.sidebar.markdown("---")
 
-st.sidebar.title("Controles de Dados")
+# NOVO: Filtros de Estratégia
+min_profit_pct = st.sidebar.slider("Mínimo de Lucro (%)", 0, 200, 10, help="Filtra oportunidades com ROI baixo.")
+sort_by = st.sidebar.selectbox("Ordenar Oportunidades por:", ["Lucro Total (Prata)", "Margem de Lucro (%)"])
 
-# Botão para carregar dados de sample e atualizar o DB
-if st.sidebar.button("Carregar Sample Data e Atualizar DB"):
-    try:
-        # 1. Carregar dados do arquivo de sample
-        st.sidebar.write("Carregando sample_data.json...")
-        sample_df = fetch_prices.load_sample_data('sample_data.json')
+st.sidebar.title("Dados (API/DB)")
 
-        # 2. Inicializar o DB (criar tabela se não existir)
-        store.init_db()
+# --- API Real ---
+with st.sidebar.expander("Buscar Dados da API", expanded=True):
+    st.info("Busque dados da API pública.")
+    item_input = st.text_area("Itens (Ex: T4_ORE, T7_BAG)", "T4_ORE,T5_WOOD,T6_HIDE,T4_FIBER,T8_BAG")
+    city_input = st.multiselect("Cidades", CIDADES_REAIS + CIDADES_PORTAIS, default=CIDADES_REAIS)
+    quality_input = st.multiselect("Qualidades", [1, 2, 3, 4, 5], default=[1])
+    
+    if st.button("Buscar na API e Atualizar"):
+        if not item_input or not city_input:
+            st.sidebar.error("Preencha itens e cidades.")
+        else:
+            items_clean = [i.strip().upper() for i in re.split(r'[,\s\n]+', item_input) if i.strip()]
+            if not items_clean:
+                 st.sidebar.error("Itens inválidos.")
+            else:
+                with st.spinner("Consultando Albion Data Project..."):
+                    api_df = fetch_prices.fetch_prices_real(items_clean, city_input, quality_input)
+                    if api_df.empty:
+                        st.sidebar.warning("Sem dados encontrados na API.")
+                    else:
+                        store.init_db()
+                        count = store.insert_prices(api_df)
+                        st.sidebar.success(f"Sucesso! {count} registros atualizados.")
+                        st.rerun()
 
-        # 3. Inserir dados no DB
-        count = store.insert_prices(sample_df)
-        st.sidebar.success(f"Banco de dados atualizado! {count} novos registros inseridos.")
-        st.toast("Banco de dados atualizado com sucesso!", icon="✅")
-        # Força o recarregamento dos dados na sessão
-        st.experimental_rerun()
-    except Exception as e:
-        st.sidebar.error(f"Erro ao carregar dados: {e}")
+# --- Controles Admin ---
+with st.sidebar.expander("Opções Avançadas"):
+    if st.button("Carregar Sample Data"):
+        try:
+            sample_df = fetch_prices.load_sample_data('sample_data.json')
+            store.init_db()
+            store.insert_prices(sample_df)
+            st.sidebar.success("Sample data carregado!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(str(e))
 
-if st.sidebar.button("Limpar Banco de Dados Local"):
-    if os.path.exists(store.DB_FILE):
-        os.remove(store.DB_FILE)
-        st.sidebar.success(f"{store.DB_FILE} limpo.")
-        st.toast("Banco de dados limpo.", icon="🗑️")
-        st.experimental_rerun()
-    else:
-        st.sidebar.info("Banco de dados já está limpo.")
+    if st.button("Limpar DB"):
+        if os.path.exists(store.DB_FILE):
+            os.remove(store.DB_FILE)
+            st.sidebar.success("DB Limpo.")
+            st.rerun()
 
+# --- Main Area ---
 
-# --- Painel Principal ---
-
-# Tenta carregar os dados do DB
 try:
     all_prices_df = store.get_prices()
 except Exception as e:
-    st.error(f"Não foi possível carregar dados do banco de dados `{store.DB_FILE}`. Erro: {e}")
-    st.info(f"O arquivo `{store.DB_FILE}` existe? {os.path.exists(store.DB_FILE)}. Clique em 'Carregar Sample Data' na barra lateral.")
-    all_prices_df = pd.DataFrame() # Cria um dataframe vazio para evitar que o resto quebre
+    st.error(f"Erro no DB: {e}")
+    all_prices_df = pd.DataFrame()
 
 if all_prices_df.empty:
-    st.warning("O banco de dados está vazio. Clique em 'Carregar Sample Data e Atualizar DB' na barra lateral para começar.")
+    st.warning("DB Vazio. Busque dados na barra lateral.")
 else:
-    st.header("Explorador de Preços")
-
-    # --- Filtros ---
-    col1, col2 = st.columns(2)
+    # --- Cálculo de Oportunidades ---
+    st.header("🏆 Top Oportunidades")
     
-    # Filtro de Item
-    all_items = sorted(all_prices_df['item_id'].unique())
-    selected_items = col1.multiselect(
-        "Filtrar por Item ID",
-        options=all_items,
-        default=all_items[:3] # Default para os 3 primeiros itens
-    )
-
-    # Filtro de Tier
-    all_tiers = sorted(all_prices_df['tier'].unique())
-    selected_tiers = col2.multiselect(
-        "Filtrar por Tier",
-        options=all_tiers,
-        default=all_tiers
-    )
-
-    # Aplicar filtros
-    if not selected_items:
-        filtered_prices_df = all_prices_df[all_prices_df['tier'].isin(selected_tiers)]
-    elif not selected_tiers:
-        filtered_prices_df = all_prices_df[all_prices_df['item_id'].isin(selected_items)]
-    else:
-        filtered_prices_df = all_prices_df[
-            (all_prices_df['item_id'].isin(selected_items)) &
-            (all_prices_df['tier'].isin(selected_tiers))
-        ]
-
-    st.dataframe(filtered_prices_df, use_container_width=True)
-
-    # --- Cálculo de Arbitragem ---
-    st.header("Top Oportunidades de Arbitragem")
-    
-    # Calcular oportunidades com base nos dados filtrados
     opportunities_df = arbitrage.find_arbitrage(
-        filtered_prices_df,
+        all_prices_df,
         fee_pct=fee_pct,
         transport_cost=transport_cost,
-        top_n=100
+        top_n=200 # Busca mais para filtrar depois
     )
 
     if opportunities_df.empty:
-        st.info("Nenhuma oportunidade de arbitragem encontrada com os filtros e parâmetros atuais.")
+        st.info("Sem oportunidades de arbitragem lucrativas.")
     else:
-        st.info(f"Encontradas {len(opportunities_df)} oportunidades. Exibindo as melhores:")
+        # Aplicar Filtro de Porcentagem
+        filtered_opps = opportunities_df[opportunities_df['profit_pct'] >= min_profit_pct].copy()
         
-        # Formatar colunas para melhor visualização
-        opportunities_df['net_profit'] = opportunities_df['net_profit'].map('{:,.0f}'.format)
-        opportunities_df['buy_price'] = opportunities_df['buy_price'].map('{:,.0f}'.format)
-        opportunities_df['sell_price'] = opportunities_df['sell_price'].map('{:,.0f}'.format)
-        opportunities_df['confidence_score'] = opportunities_df['confidence_score'].map('{:.2%}'.format)
+        # Aplicar Ordenação
+        if sort_by == "Margem de Lucro (%)":
+            filtered_opps = filtered_opps.sort_values(by='profit_pct', ascending=False)
+        else:
+            filtered_opps = filtered_opps.sort_values(by='net_profit', ascending=False)
+            
+        # Mostrar Top 50 após filtros
+        final_view = filtered_opps.head(50)
 
-        st.dataframe(opportunities_df, use_container_width=True)
+        if final_view.empty:
+            st.warning(f"Existem oportunidades, mas nenhuma com lucro acima de {min_profit_pct}%. Tente baixar o filtro.")
+        else:
+            # Métricas de Resumo
+            best_silver = final_view.iloc[0]['net_profit']
+            best_pct = final_view.iloc[0]['profit_pct']
+            st.metric("Melhor Lucro (Prata)", f"{best_silver:,.0f}", delta="Líquido")
+            st.metric("Melhor Margem (%)", f"{best_pct:.1f}%", delta="ROI")
 
-        # --- Botão de Exportar ---
-        csv_data = opportunities_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Exportar Oportunidades (CSV)",
-            data=csv_data,
-            file_name="albion_arbitrage_opportunities.csv",
-            mime="text/csv",
-        )
+            # Formatação Visual
+            display_df = final_view.copy()
+            
+            # Adicionar ícone de alerta se a confiança for baixa (Volume baixo/Dado velho)
+            def get_confidence_icon(score):
+                if score > 0.8: return "🟢 Alta"
+                if score > 0.5: return "🟡 Média"
+                return "🔴 Baixa (Risco)"
+            
+            display_df['Confiança (Recência)'] = display_df['confidence_score'].apply(get_confidence_icon)
+
+            display_df['Lucro Líquido'] = display_df['net_profit'].map('{:,.0f}'.format)
+            display_df['% Lucro'] = display_df['profit_pct'].map('{:.1f}%'.format)
+            display_df['Investimento (Compra)'] = display_df['buy_price'].map('{:,.0f}'.format)
+            display_df['Venda Estimada'] = display_df['sell_price'].map('{:,.0f}'.format)
+            
+            # Seleção de colunas finais
+            cols = [
+                'item_id_quality', 'buy_city', 'sell_city', 
+                'Investimento (Compra)', 'Venda Estimada', 
+                'Lucro Líquido', '% Lucro', 'Confiança (Recência)'
+            ]
+            
+            st.dataframe(
+                display_df[cols],
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            st.caption("Nota sobre Volume: A API de preços rápidos não informa a quantidade de itens vendidos. Use a coluna 'Confiança' como indicador: se for '🟢 Alta', o item foi negociado recentemente, indicando maior liquidez.")
+
+    st.divider()
+    
+    with st.expander("Ver Tabela Bruta de Preços"):
+        st.dataframe(all_prices_df)
