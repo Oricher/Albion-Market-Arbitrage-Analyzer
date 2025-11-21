@@ -1,53 +1,47 @@
-Albion Market Arbitrage Analyzer (MVP)
+📊 Albion Market Arbitrage Analyzer
 
-Este é um protótipo (MVP) de uma ferramenta para analisar o mercado do jogo Albion Online e identificar oportunidades de "arbitragem" (comprar barato em uma cidade e vender caro em outra).
+Ferramenta Open Source de inteligência de mercado para Albion Online. O objetivo é identificar oportunidades de arbitragem (comprar barato em uma cidade, vender caro em outra ou no Mercado Negro) utilizando dados da comunidade.
 
-Versão Atual (MVP): Esta ferramenta usa um arquivo local (sample_data.json) para simular dados de mercado e não se conecta à API real do Albion Data Project.
+Nota: Este projeto foi desenvolvido com fins educacionais para demonstrar análise de dados financeiros em jogos MMO.
 
-Aviso Ético e Limitações
+🎯 O Problema
 
-Esta ferramenta NÃO é um bot.
+O mercado do Albion é local. Um item em Martlock não tem o mesmo preço em Lymhurst. Encontrar margens de lucro exige verificar milhares de itens manualmente.
 
-Ela não automatiza nenhuma ação dentro do jogo.
+💡 A Solução
 
-Ela não lê a memória do cliente nem interage com o processo do jogo.
+Este analisador conecta-se à API do Albion Data Project, baixa preços em tempo real e cruza dados de Venda (Sell Order) vs Compra (Buy Order) considerando:
 
-O objetivo é apenas análise de dados para ajudar na tomada de decisão manual.
+Taxas de mercado (Premium vs Free).
 
-O uso de ferramentas automatizadas de compra/venda viola os Termos de Serviço do Albion Online. Use esta ferramenta apenas para análise.
+Custos de transporte.
 
-Qualidade dos Dados (Importante!)
+Taxa de retorno (ROI).
 
-Os dados de mercado de fontes comunitárias (como o Albion Data Project) dependem de jogadores que rodam o cliente de coleta.
+Recência dos dados (Confiança).
 
-Os dados podem estar desatualizados, incompletos ou esparsos.
+📸 Screenshots
 
-Sempre verifique o confidence_score e os timestamps antes de tomar uma decisão de mercado. Uma oportunidade com "lucro" de 200% pode ser baseada em um preço de 3 dias atrás.
+(Espaço reservado para seus prints do Dashboard)
 
-Funcionalidades (MVP)
+🚀 Funcionalidades
 
-Carrega dados de mercado (atualmente de um JSON local).
+Scanner de Arbitragem: Verifica milhares de itens simultaneamente.
 
-Armazena o histórico de preços em um banco de dados SQLite local.
+Filtros Inteligentes: Categoria, Tier, Encantamento e Qualidade.
 
-Calcula oportunidades de arbitragem entre cidades, incluindo taxas de mercado configuráveis.
+Indicador de Liquidez: Alerta se o dado é muito antigo (risco de o item não vender).
 
-Exibe as melhores oportunidades em um dashboard interativo (Streamlit).
+Suporte ao Black Market: Analisa oportunidades para Caerleon.
 
-Permite a exportação dos resultados para CSV.
+Clean Data: Tratamento de erros para dados inconsistentes da API.
 
-Instalação
+🛠️ Instalação e Uso Local
 
-Clone este repositório:
+Clone o repositório:
 
-git clone [https://github.com/seu-usuario/albion_market_analyzer.git](https://github.com/seu-usuario/albion_market_analyzer.git)
-cd albion_market_analyzer
-
-
-Crie um ambiente virtual (recomendado):
-
-python -m venv venv
-source venv/bin/activate  # No Windows: venv\Scripts\activate
+git clone [https://github.com/seu-usuario/albion-market-analyzer.git](https://github.com/seu-usuario/albion-market-analyzer.git)
+cd albion-market-analyzer
 
 
 Instale as dependências:
@@ -55,42 +49,26 @@ Instale as dependências:
 pip install -r requirements.txt
 
 
-Como Rodar
-
-Execute o dashboard Streamlit:
+Execute o Dashboard:
 
 streamlit run app.py
 
 
-Abra o navegador no endereço local fornecido (geralmente http://localhost:8501).
+📊 Estrutura do Código
 
-No dashboard:
+app.py: Frontend (Streamlit). Gerencia a UI e interação.
 
-Clique no botão "Carregar Sample Data e Atualizar DB" para popular o banco de dados local.
+arbitrage.py: O "cérebro". Contém a lógica matemática de lucro e ROI.
 
-Ajuste os parâmetros (taxa de mercado, custo de transporte) na barra lateral.
+store.py: Camada de persistência (SQLite) com tratamento de dados brutos.
 
-Filtre os itens que deseja analisar.
+fetch_prices.py: Cliente HTTP para conexão com a API externa.
 
-Visualize os preços e as principais oportunidades.
+🤝 Contribuição e Dados
 
-Clique em "Exportar Oportunidades (CSV)" para baixar os dados.
+Esta ferramenta depende de dados enviados por jogadores usando o Albion Data Client.
+Para saber como contribuir com dados, leia CAMPAIGN.md.
 
-Exemplo de Uso (Futuro, com API real)
+⚖️ Aviso Legal
 
-O script fetch_prices.py está preparado para receber argumentos de linha de comando. Quando a API real for integrada, você poderá usá-lo assim:
-
-python fetch_prices.py --items T4_ORE,T5_WOOD --cities Bridgewatch,Martlock
-
-Linha de Raciocínio: 
-Estrutura de Pastas (Tree)
-
-albion_market_analyzer/
-├── .gitignore
-├── README.md
-├── app.py
-├── arbitrage.py
-├── fetch_prices.py
-├── requirements.txt
-├── sample_data.json
-└── store.py
+Esta ferramenta apenas processa dados públicos. Ela não interage com o cliente do jogo, não lê memória e não automatiza ações (cliques/movimento). O uso é seguro e externo ao jogo.

@@ -1,21 +1,14 @@
 import sqlite3
 import pandas as pd
 import os
+import numpy as np
+import ast
 
+# Configurações do Banco de Dados
 DB_FILE = "albion_market.db"
 TABLE_NAME = "market_prices"
 
-def init_db(db_file=DB_FILE):
-    """
-    Cria a tabela de preços de mercado se ela não existir.
-    
-    A PRIMARY KEY (item_id, city, quality) garante que temos apenas
-    um registro por item/cidade/qualidade.
-    
-    Usamos 'ON CONFLICT REPLACE' para que novos dados sempre
-    substituam os antigos.
-    """
-    # Garantir que o diretório exista (se o DB_FILE for um caminho)
+def init_db(db_file: str = DB_FILE):
     os.makedirs(os.path.dirname(os.path.abspath(db_file)), exist_ok=True)
     
     create_table_query = f"""
@@ -31,7 +24,7 @@ def init_db(db_file=DB_FILE):
         PRIMARY KEY (item_id, city, quality)
     ) WITHOUT ROWID;
     """
-    # Criar um índice para consultas rápidas por item
+    
     create_index_query = f"""
     CREATE INDEX IF NOT EXISTS idx_item_id
     ON {TABLE_NAME} (item_id);
@@ -41,61 +34,88 @@ def init_db(db_file=DB_FILE):
         with sqlite3.connect(db_file) as con:
             con.execute(create_table_query)
             con.execute(create_index_query)
-        print(f"Banco de dados '{db_file}' e tabela '{TABLE_NAME}' inicializados.")
     except sqlite3.Error as e:
-        print(f"Erro ao inicializar o banco de dados: {e}")
+        print(f"ERRO DB: Falha ao inicializar banco: {e}")
 
-def insert_prices(df, db_file=DB_FILE):
+def clean_dataframe(df):
     """
-    Insere um DataFrame de preços no banco de dados SQLite.
-    Usa 'ON CONFLICT REPLACE' para atualizar registros existentes.
+    Função de Limpeza Profunda:
+    Recupera números reais de dados corrompidos (bytes/tuplas) no SQLite.
     """
-    if df.empty:
-        print("DataFrame vazio, nada para inserir.")
-        return 0
+    df = df.copy()
+    
+    # --- Helper: Extrator Genérico ---
+    def extract_number(val):
+        try:
+            if isinstance(val, (int, float)): return int(val)
+            
+            # Tenta limpar string suja
+            if isinstance(val, str):
+                if ',' in val: val = val.split(',')[0] # "4,0,0" -> 4
+                val = val.replace("b'", "").replace("'", "")
+                return int(float(val))
+                
+            # Tenta pegar primeiro item de lista/tupla
+            if isinstance(val, (list, tuple)): return int(val[0])
+            
+            # Tenta converter bytes para int
+            if isinstance(val, bytes):
+                return int.from_bytes(val[:4], "little") # Assume 4 bytes int
+                
+            return 0
+        except:
+            return 0
 
-    # Colunas esperadas pelo novo schema do DB
-    expected_cols = [
+    # --- 1. Limpeza de TIER ---
+    df['tier'] = df['tier'].apply(extract_number)
+
+    # --- 2. Limpeza de QUALIDADE ---
+    # Qualidade precisa de tratamento especial para bytes (geralmente é 1 byte)
+    def clean_quality(val):
+        try:
+            if isinstance(val, bytes): return int.from_bytes(val[:1], "little")
+            return extract_number(val)
+        except:
+            return 1
+            
+    df['quality'] = df['quality'].apply(clean_quality)
+
+    # --- 3. Limpeza de PREÇOS (O Pulo do Gato) ---
+    # Aplicamos o extrator para salvar preços que viraram tuplas/bytes
+    for col in ['sell_price_min', 'buy_price_max']:
+        df[col] = df[col].apply(extract_number)
+
+    # --- 4. Limpeza de DATAS ---
+    for col in ['timestamp_sell_min', 'timestamp_buy_max']:
+        df[col] = df[col].astype(str).replace({'nan': '', 'NaT': '', '<NA>': '', 'None': ''})
+        
+    return df
+
+def insert_prices(df: pd.DataFrame, db_file: str = DB_FILE) -> int:
+    if df.empty: return 0
+
+    cols_to_db = [
         'item_id', 'city', 'quality', 
         'sell_price_min', 'timestamp_sell_min',
         'buy_price_max', 'timestamp_buy_max',
         'tier'
     ]
     
-    # Adiciona colunas faltantes com None (ex: se o sample_data for usado)
-    for col in expected_cols:
+    for col in cols_to_db:
         if col not in df.columns:
             df[col] = None
             
-    # Filtra apenas para as colunas esperadas
-    df_to_insert = df[expected_cols].copy()
+    # LIMPA ANTES DE SALVAR
+    df = clean_dataframe(df)
 
-    # --- Limpeza de Dados ---
-    # Garantir que a chave primária não seja nula
-    df_to_insert = df_to_insert.dropna(subset=['item_id', 'city', 'quality'])
-    # Remover itens sem ID (comuns em dados de API)
-    df_to_insert = df_to_insert[df_to_insert['item_id'] != ""]
+    df_clean = df[cols_to_db].dropna(subset=['item_id', 'city', 'quality'])
+    df_clean = df_clean[df_clean['item_id'] != ""]
 
-    # Converter tipos
-    df_to_insert['quality'] = pd.to_numeric(df_to_insert['quality'], errors='coerce').fillna(0).astype(int)
-    df_to_insert['tier'] = pd.to_numeric(df_to_insert['tier'], errors='coerce').fillna(0).astype(int)
-    df_to_insert['sell_price_min'] = pd.to_numeric(df_to_insert['sell_price_min'], errors='coerce').fillna(0).astype(int)
-    df_to_insert['buy_price_max'] = pd.to_numeric(df_to_insert['buy_price_max'], errors='coerce').fillna(0).astype(int)
-    
-    # Preencher timestamps nulos com string vazia
-    df_to_insert['timestamp_sell_min'] = df_to_insert['timestamp_sell_min'].fillna("")
-    df_to_insert['timestamp_buy_max'] = df_to_insert['timestamp_buy_max'].fillna("")
-
-
-    if df_to_insert.empty:
-        print("Nenhum dado válido para inserir após a limpeza.")
-        return 0
+    if df_clean.empty: return 0
 
     try:
         with sqlite3.connect(db_file) as con:
-            # Usar 'replace' ativa o 'ON CONFLICT REPLACE' definido na PRIMARY KEY
-            data_tuples = [tuple(x) for x in df_to_insert.to_records(index=False)]
-            
+            data_tuples = [tuple(x) for x in df_clean.to_records(index=False)]
             insert_query = f"""
             INSERT OR REPLACE INTO {TABLE_NAME} (
                 item_id, city, quality, 
@@ -104,38 +124,36 @@ def insert_prices(df, db_file=DB_FILE):
                 tier
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """
-            
             cursor = con.cursor()
             cursor.executemany(insert_query, data_tuples)
             con.commit()
-            
-            print(f"Inseridos/Atualizados {cursor.rowcount} registros no DB.")
             return cursor.rowcount
-
     except sqlite3.Error as e:
-        print(f"Erro ao inserir dados no banco de dados: {e}")
+        print(f"ERRO DB: {e}")
         return 0
 
-def get_prices(db_file=DB_FILE):
+def get_prices(db_file: str = DB_FILE) -> pd.DataFrame:
     """
-    Busca todos os preços do banco de dados.
+    Recupera histórico E LIMPA A SAÍDA VISUALMENTE.
     """
     if not os.path.exists(db_file):
-        print(f"Arquivo de banco de dados não encontrado: {db_file}")
         return pd.DataFrame()
         
     try:
         with sqlite3.connect(db_file) as con:
-            # Ordenar pelos mais recentes (melhor timestamp entre compra e venda)
-            query = f"SELECT * FROM {TABLE_NAME} ORDER BY MAX(timestamp_sell_min, timestamp_buy_max) DESC"
+            query = f"SELECT * FROM {TABLE_NAME} ORDER BY item_id, city"
             df = pd.read_sql_query(query, con)
             
-            # Converter timestamps de volta para datetime
-            df['timestamp_sell_min'] = pd.to_datetime(df['timestamp_sell_min'], utc=True, errors='coerce')
-            df['timestamp_buy_max'] = pd.to_datetime(df['timestamp_buy_max'], utc=True, errors='coerce')
+            # --- LIMPEZA VISUAL NA LEITURA ---
+            # Mesmo que o banco esteja sujo, limpamos antes de mostrar
+            df = clean_dataframe(df)
+            # ---------------------------------
+            
+            time_cols = ['timestamp_sell_min', 'timestamp_buy_max']
+            for col in time_cols:
+                df[col] = pd.to_datetime(df[col], utc=True, errors='coerce')
             
             return df
     except sqlite3.Error as e:
-        print(f"Erro ao buscar dados: {e}")
-        # Retorna DF vazio se a tabela não existir
+        print(f"ERRO DB LEITURA: {e}")
         return pd.DataFrame()
