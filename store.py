@@ -70,7 +70,6 @@ def clean_dataframe(df):
     df['tier'] = df['tier'].apply(extract_number)
 
     # --- 2. Limpeza de QUALIDADE ---
-    # Qualidade precisa de tratamento especial para bytes (geralmente é 1 byte)
     def clean_quality(val):
         try:
             if isinstance(val, bytes): return int.from_bytes(val[:1], "little")
@@ -80,8 +79,7 @@ def clean_dataframe(df):
             
     df['quality'] = df['quality'].apply(clean_quality)
 
-    # --- 3. Limpeza de PREÇOS (O Pulo do Gato) ---
-    # Aplicamos o extrator para salvar preços que viraram tuplas/bytes
+    # --- 3. Limpeza de PREÇOS ---
     for col in ['sell_price_min', 'buy_price_max']:
         df[col] = df[col].apply(extract_number)
 
@@ -145,9 +143,7 @@ def get_prices(db_file: str = DB_FILE) -> pd.DataFrame:
             df = pd.read_sql_query(query, con)
             
             # --- LIMPEZA VISUAL NA LEITURA ---
-            # Mesmo que o banco esteja sujo, limpamos antes de mostrar
             df = clean_dataframe(df)
-            # ---------------------------------
             
             time_cols = ['timestamp_sell_min', 'timestamp_buy_max']
             for col in time_cols:

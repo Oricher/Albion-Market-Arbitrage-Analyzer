@@ -12,12 +12,6 @@ NULL_TIMESTAMP = "0001-01-01T00:00:00" # Valor padrão da API para datas nulas
 def load_sample_data(filepath: str = 'sample_data.json') -> pd.DataFrame:
     """
     Carrega dados de um arquivo JSON local para fins de teste e desenvolvimento.
-    
-    Args:
-        filepath (str): Caminho para o arquivo JSON.
-        
-    Returns:
-        pd.DataFrame: DataFrame normalizado com as colunas esperadas pelo sistema.
     """
     try:
         with open(filepath, 'r') as f:
@@ -47,15 +41,6 @@ def load_sample_data(filepath: str = 'sample_data.json') -> pd.DataFrame:
 def fetch_prices_real(items: list[str], cities: list[str], qualities: list[int]) -> pd.DataFrame:
     """
     Busca preços atuais na API pública do Albion Data Project.
-    
-    Args:
-        items (list): Lista de IDs de itens (ex: ['T4_ORE', 'T5_WOOD']).
-        cities (list): Lista de cidades para consulta.
-        qualities (list): Lista de inteiros representando a qualidade (1=Normal, etc).
-        
-    Returns:
-        pd.DataFrame: DataFrame contendo preços, timestamps e locais. 
-                      Retorna vazio em caso de erro ou falta de dados.
     """
     if not items or not cities:
         print("AVISO: Lista de itens ou cidades vazia.")
@@ -122,6 +107,5 @@ def fetch_prices_real(items: list[str], cities: list[str], qualities: list[int])
         print(f"ERRO API: Falha na requisição: {e}")
         return pd.DataFrame()
 
-# Bloco para testes manuais via terminal
 if __name__ == "__main__":
     print("Execute 'streamlit run app.py' para usar a ferramenta.")
