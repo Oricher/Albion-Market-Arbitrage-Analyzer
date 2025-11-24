@@ -22,7 +22,8 @@ Recência dos dados (Confiança).
 
 📸 Screenshots
 
-(Espaço reservado para seus prints do Dashboard)
+<img width="1903" height="898" alt="image" src="https://github.com/user-attachments/assets/d1507da6-a37a-4bac-9094-d955d941e5cb" />
+
 
 🚀 Funcionalidades
 
