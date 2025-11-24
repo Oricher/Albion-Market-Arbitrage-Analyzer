@@ -16,13 +16,12 @@ st.set_page_config(
 
 # --- CABEÇALHO ---
 st.title("📊 Albion Market Analyzer")
-st.markdown("Ferramenta de Análise de Arbitragem e Mercado Negro.")
 
 # --- Status do Banco de Dados ---
 if not os.path.exists(store.DB_FILE):
-    st.warning("⚠️ Banco de dados local não encontrado. Use o menu lateral para baixar dados.")
+    st.caption("⚠️ Banco de dados vazio. Configure os filtros ao lado e clique em 'Atualizar'.")
 else:
-    st.caption(f"Status do Banco de Dados: Conectado (`{store.DB_FILE}`)")
+    st.caption(f"Status: Conectado")
 
 # --- Constantes Globais ---
 CIDADES_REAIS = ["Thetford", "Fort Sterling", "Lymhurst", "Bridgewatch", "Martlock", "Caerleon", "Black Market"]
@@ -58,103 +57,97 @@ def format_item_name_pt(item_id):
     return final_name if base_name else item_id
 
 # ==========================================
-# BARRA LATERAL
+# BARRA LATERAL (FILTROS E CONTROLES)
 # ==========================================
-st.sidebar.title("⚙️ Parâmetros")
+st.sidebar.title("⚙️ Filtros & Ações")
 
-st.sidebar.subheader("Economia")
-DEFAULT_FEE_PCT = 4.5
-DEFAULT_TRANSPORT_COST = 500
-fee_pct = st.sidebar.number_input("Taxa de Mercado (%)", 0.0, 20.0, DEFAULT_FEE_PCT, step=0.5)
-transport_cost = st.sidebar.number_input("Custo Transporte (Prata)", 0, value=DEFAULT_TRANSPORT_COST, step=100)
+# 1. Seleção de Itens
+st.sidebar.subheader("1. O que você procura?")
+tab_menu, tab_manual = st.sidebar.tabs(["📂 Categorias", "📝 Manual"])
+final_items_list = []
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Estratégia")
-
-# Seletor de Método de Venda
-arb_method = st.sidebar.radio(
-    "Método de Venda",
-    ["Venda Lenta (Sell Order)", "Venda Imediata (Buy Order)"],
-    index=0,
-    help="Venda Lenta: Você coloca o item à venda e espera (Lucro Maior). Venda Imediata: Você vende para quem já fez oferta (Lucro Menor/Rápido)."
-)
-method_code = 'sell_order' if "Lenta" in arb_method else 'instant'
-
-min_profit_pct = st.sidebar.slider("Lucro Mínimo (ROI %)", 0, 200, 5)
-sort_by = st.sidebar.selectbox("Ordenar Resultados por:", ["Lucro Total (Prata)", "Margem de Lucro (%)"])
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("Atualizar Dados")
-
-with st.sidebar.expander("📡 Buscar na API (Albion Data)", expanded=True):
-    tab_menu, tab_manual = st.tabs(["📂 Seleção Visual", "📝 Lista Manual"])
-    final_items_list = []
+with tab_menu:
+    cat_options = list(items_data.CATEGORIES.keys())
+    selected_cat = st.selectbox("Categoria", cat_options)
+    sub_options = items_data.CATEGORIES[selected_cat] 
+    selected_sub_names = st.multiselect("Itens", list(sub_options.keys()), default=list(sub_options.keys())[:1])
     
-    # ABA 1: MENU VISUAL
-    with tab_menu:
-        st.info("Gere itens automaticamente selecionando categorias.")
-        cat_options = list(items_data.CATEGORIES.keys())
-        selected_cat = st.selectbox("Categoria", cat_options)
-        sub_options = items_data.CATEGORIES[selected_cat] 
-        selected_sub_names = st.multiselect("Itens Específicos", list(sub_options.keys()), default=list(sub_options.keys())[:1])
-        
-        col_tier, col_ench = st.columns(2)
-        selected_tiers = col_tier.multiselect("Tiers", [3, 4, 5, 6, 7, 8], default=[4, 5])
-        selected_enchants = col_ench.multiselect("Encantamento", [0, 1, 2, 3, 4], default=[0], format_func=lambda x: "Flat (.0)" if x==0 else f".{x}")
-        
-        if selected_sub_names and selected_tiers:
-            subset_dict = {k: v for k, v in sub_options.items() if k in selected_sub_names}
-            generated_ids = items_data.generate_item_list(subset_dict, selected_tiers, selected_enchants)
-            st.caption(f"Serão buscados {len(generated_ids)} itens.")
-            final_items_list = generated_ids
+    col_tier, col_ench = st.columns(2)
+    selected_tiers = col_tier.multiselect("Tiers", [3, 4, 5, 6, 7, 8], default=[4, 5])
+    selected_enchants = col_ench.multiselect("Encant.", [0, 1, 2, 3, 4], default=[0], format_func=lambda x: f".{x}" if x>0 else "Flat")
+    
+    if selected_sub_names and selected_tiers:
+        subset_dict = {k: v for k, v in sub_options.items() if k in selected_sub_names}
+        generated_ids = items_data.generate_item_list(subset_dict, selected_tiers, selected_enchants)
+        final_items_list = generated_ids
 
-    # ABA 2: MANUAL
-    with tab_manual:
-        st.info("Digite IDs manualmente para itens específicos.")
-        manual_input = st.text_area("IDs (ex: T4_BAG, T7_ORE)", "")
-        if manual_input:
-            final_items_list = [i.strip().upper() for i in re.split(r'[,\s\n]+', manual_input) if i.strip()]
+with tab_manual:
+    manual_input = st.text_area("IDs (ex: T4_BAG)", "")
+    if manual_input:
+        final_items_list = [i.strip().upper() for i in re.split(r'[,\s\n]+', manual_input) if i.strip()]
 
-    st.markdown("---")
-    city_input = st.multiselect("Cidades", CIDADES_REAIS + CIDADES_PORTAIS, default=CIDADES_REAIS)
-    quality_input = st.multiselect("Qualidade Mínima", [1, 2, 3, 4, 5], default=[1])
+# 2. Seleção de Cidades
+st.sidebar.subheader("2. Onde?")
+city_input = st.sidebar.multiselect("Cidades", CIDADES_REAIS + CIDADES_PORTAIS, default=CIDADES_REAIS)
+quality_input = st.sidebar.multiselect("Qualidade", [1, 2, 3, 4, 5], default=[1])
 
-    if st.button("📥 Baixar Dados e Atualizar DB"):
-        if not final_items_list or not city_input:
-            st.sidebar.error("Selecione itens e cidades.")
-        else:
-            with st.spinner(f"Consultando {len(final_items_list)} itens..."):
-                api_df = fetch_prices.fetch_prices_real(final_items_list, city_input, quality_input)
-                if api_df.empty:
-                    st.sidebar.warning("API sem dados.")
-                else:
-                    store.init_db()
-                    count = store.insert_prices(api_df)
-                    st.sidebar.success(f"Sucesso! {count} registros.")
-                    st.rerun()
+# 3. Botão de Ação
+st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Atualizar Dados", type="primary"):
+    if not final_items_list or not city_input:
+        st.sidebar.error("Selecione itens e cidades.")
+    else:
+        with st.spinner(f"Buscando preços para {len(final_items_list)} itens..."):
+            # Busca novos dados na API
+            api_df = fetch_prices.fetch_prices_real(final_items_list, city_input, quality_input)
+            
+            # Atualiza o Banco de Dados
+            store.init_db()
+            count = store.insert_prices(api_df)
+            
+            if count > 0:
+                st.sidebar.success(f"Atualizado! {count} preços novos.")
+            else:
+                st.sidebar.warning("API não retornou dados novos (talvez ninguém tenha escaneado esses itens recentemente).")
 
-with st.sidebar.expander("🛠️ Admin / Debug"):
-    if st.button("Limpar Banco de Dados"):
-        if os.path.exists(store.DB_FILE):
-            os.remove(store.DB_FILE)
-            st.sidebar.success("DB Limpo.")
-            st.rerun()
+# 4. Parâmetros Econômicos
+st.sidebar.markdown("---")
+with st.sidebar.expander("💰 Taxas e Lucro", expanded=False):
+    fee_pct = st.number_input("Taxa Mercado (%)", 0.0, 20.0, 4.5, step=0.5)
+    transport_cost = st.number_input("Custo Transporte", 0, value=500, step=100)
+    min_profit_pct = st.slider("Lucro Mínimo (ROI %)", 0, 200, 10)
+    arb_method = st.radio("Estratégia", ["Venda Lenta (Sell Order)", "Venda Imediata (Buy Order)"])
+    method_code = 'sell_order' if "Lenta" in arb_method else 'instant'
 
 # ==========================================
 # ÁREA PRINCIPAL (MAIN)
 # ==========================================
 
+# 1. Carregar Tudo
 try:
     all_prices_df = store.get_prices()
 except Exception as e:
-    st.error(f"Erro DB: {e}")
+    st.error(f"Erro ao ler banco de dados: {e}")
     all_prices_df = pd.DataFrame()
 
-if all_prices_df.empty:
-    st.info("👋 Bem-vindo! Para começar, selecione itens na barra lateral e clique em 'Baixar Dados'.")
-else:
-    st.header("🏆 Oportunidades Identificadas")
+# 2. FILTRAGEM VISUAL (A CORREÇÃO IMPORTANTE)
+# Filtra o DataFrame global para mostrar APENAS o que o usuário selecionou na sidebar agora.
+if not all_prices_df.empty and final_items_list:
+    # Filtra por Itens Selecionados
+    all_prices_df = all_prices_df[all_prices_df['item_id'].isin(final_items_list)]
     
+    # Filtra por Cidades Selecionadas (apenas para garantir que não apareçam cidades indesejadas na tabela bruta)
+    if city_input:
+        all_prices_df = all_prices_df[all_prices_df['city'].isin(city_input)]
+
+# 3. Processamento
+if all_prices_df.empty:
+    if not final_items_list:
+        st.info("👈 Use a barra lateral para selecionar uma categoria (ex: Minério).")
+    else:
+        st.warning("Nenhum dado encontrado para os filtros atuais. Clique em 'Atualizar Dados' para buscar na API.")
+else:
+    # Calcula Arbitragem (apenas com os dados filtrados)
     opportunities_df = arbitrage.find_arbitrage(
         all_prices_df,
         fee_pct=fee_pct,
@@ -164,80 +157,61 @@ else:
     )
 
     if opportunities_df.empty:
-        st.info("Sem oportunidades lucrativas com os parâmetros atuais.")
-        with st.expander("Por que está vazio? (Diagnóstico)"):
-            st.write("1. **Item muito barato:** Zere o custo de transporte para testar.")
-            st.write(f"2. **Estratégia:** Tente alternar para **'Venda Lenta'**.")
-            st.write("3. **Black Market:** Tente incluir 'Black Market' nas cidades de busca.")
+        st.info("Sem oportunidades de lucro para os itens selecionados.")
     else:
-        # Filtros e Ordenação
+        # Filtro de ROI
         filtered_opps = opportunities_df[opportunities_df['profit_pct'] >= min_profit_pct].copy()
         
-        if sort_by == "Margem de Lucro (%)":
-            filtered_opps = filtered_opps.sort_values(by='profit_pct', ascending=False)
-        else:
-            filtered_opps = filtered_opps.sort_values(by='net_profit', ascending=False)
-            
+        # Ordenação
+        filtered_opps = filtered_opps.sort_values(by='net_profit', ascending=False)
         final_view = filtered_opps.head(50)
 
         if final_view.empty:
-            st.warning(f"Existem oportunidades, mas nenhuma supera {min_profit_pct}% de ROI.")
+            st.warning(f"Existem itens, mas nenhum atinge o ROI mínimo de {min_profit_pct}%. Tente baixar a margem.")
         else:
-            col1, col2, col3 = st.columns(3)
-            best_silver = final_view.iloc[0]['net_profit']
-            best_pct = final_view.iloc[0]['profit_pct']
-            col1.metric("Melhor Lucro", f"{best_silver:,.0f}", delta="Prata")
-            col2.metric("Melhor ROI", f"{best_pct:.1f}%", delta="%")
-            col3.metric("Oportunidades", len(final_view))
+            # --- INÍCIO DA LÓGICA DE VOLUME (Se você já implementou o Passo 1) ---
+            # Se você ainda não implementou o 'fetch_sales_history' no fetch_prices.py,
+            # essa parte pode dar erro. Se der erro, comente as linhas abaixo até 'FIM'.
+            try:
+                if 'fetch_sales_history' in dir(fetch_prices):
+                    unique_destinations = final_view['sell_city'].unique()
+                    volume_map = {}
+                    # Verifica volume apenas se tivermos itens
+                    for city in unique_destinations:
+                        items_for_city = final_view[final_view['sell_city'] == city]['item_id_quality'].apply(lambda x: x.split('_Q')[0]).unique().tolist()
+                        vols = fetch_prices.fetch_sales_history(items_for_city, city)
+                        volume_map.update(vols)
+                    
+                    final_view['Volume/Dia'] = final_view.apply(lambda row: volume_map.get(row['item_id_quality'].split('_Q')[0], 0), axis=1)
+                    final_view['Liq.'] = final_view['Volume/Dia'].apply(lambda x: "🟢" if x > 50 else ("🟡" if x > 10 else "🔴"))
+                else:
+                    final_view['Volume/Dia'] = "N/A"
+                    final_view['Liq.'] = "⚪"
+            except:
+                pass # Ignora erro de volume se a função não existir ainda
+            # --- FIM ---
 
+            # Métricas
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Melhor Lucro", f"{final_view.iloc[0]['net_profit']:,.0f}")
+            c2.metric("Melhor ROI", f"{final_view.iloc[0]['profit_pct']:.1f}%")
+            c3.metric("Oportunidades", len(final_view))
+
+            # Tabela Final
             display_df = final_view.copy()
-            
-            # Ícones de Confiança
-            def get_confidence_icon(score):
-                if score > 0.8: return "🟢 Alta"
-                if score > 0.5: return "🟡 Média"
-                return "🔴 Risco"
-            
-            display_df['Confiança'] = display_df['confidence_score'].apply(get_confidence_icon)
-            
-            # Formatação Numérica
-            display_df['Lucro Líquido'] = display_df['net_profit'].map('{:,.0f}'.format)
-            display_df['ROI (%)'] = display_df['profit_pct'].map('{:.1f}%'.format)
+            display_df['Lucro'] = display_df['net_profit'].map('{:,.0f}'.format)
+            display_df['ROI'] = display_df['profit_pct'].map('{:.1f}%'.format)
             display_df['Compra'] = display_df['buy_price'].map('{:,.0f}'.format)
             display_df['Venda'] = display_df['sell_price'].map('{:,.0f}'.format)
             display_df['Item'] = display_df['item_id_quality'].apply(lambda x: format_item_name_pt(x.split('_Q')[0]))
             
-            cols_final = ['Item', 'buy_city', 'sell_city', 'Compra', 'Venda', 'Lucro Líquido', 'ROI (%)', 'Confiança']
+            # Colunas dinâmicas (dependendo se volume existe ou não)
+            cols = ['Item', 'buy_city', 'sell_city', 'Compra', 'Venda', 'Lucro', 'ROI']
+            if 'Volume/Dia' in display_df.columns:
+                cols.extend(['Volume/Dia', 'Liq.'])
+            
             st.dataframe(
-                display_df[cols_final].rename(columns={'buy_city': 'Origem', 'sell_city': 'Destino'}), 
-                use_container_width=True, 
+                display_df[cols].rename(columns={'buy_city': 'Origem', 'sell_city': 'Destino'}),
+                use_container_width=True,
                 hide_index=True
-            )
-
-    st.divider()
-    
-    # Visualização da Tabela Bruta
-    with st.expander("🔍 Ver Dados Brutos"):
-        if not all_prices_df.empty:
-            visual_df = all_prices_df.copy()
-            
-            # Limpeza visual redundante para segurança
-            visual_df['sell_price_min'] = pd.to_numeric(visual_df['sell_price_min'], errors='coerce').fillna(0)
-            visual_df['buy_price_max'] = pd.to_numeric(visual_df['buy_price_max'], errors='coerce').fillna(0)
-            
-            visual_df['Item'] = visual_df['item_id'].apply(format_item_name_pt)
-            visual_df['Qualidade'] = visual_df['quality'].apply(format_quality_name)
-            visual_df['Venda'] = visual_df['sell_price_min'].map('{:,.0f}'.format)
-            visual_df['Compra'] = visual_df['buy_price_max'].map('{:,.0f}'.format)
-            
-            for col in ['timestamp_sell_min', 'timestamp_buy_max']:
-                visual_df[col] = pd.to_datetime(visual_df[col], errors='coerce')
-            
-            visual_df['Data Venda'] = visual_df['timestamp_sell_min'].dt.strftime('%d/%m %H:%M')
-            visual_df['Data Compra'] = visual_df['timestamp_buy_max'].dt.strftime('%d/%m %H:%M')
-            
-            cols_show = ['Item', 'city', 'Qualidade', 'tier', 'Venda', 'Data Venda', 'Compra', 'Data Compra']
-            st.dataframe(
-                visual_df[cols_show].rename(columns={'city': 'Cidade', 'tier': 'Tier'}), 
-                use_container_width=True
             )
